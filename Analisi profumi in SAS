@@ -1,0 +1,111 @@
+/* Codice generato (IMPORTAZIONE) */
+/* File di origine: acquisti_150 (v1).xlsx */
+/* Percorso di origine: /home/u64348929 */
+/* Codice generato in data: 08/11/25, 10:21 */
+
+%web_drop_table(WORK.IMPORT);
+
+
+FILENAME REFFILE '/home/u64348929/acquisti_150 (v1).xlsx';
+
+PROC IMPORT DATAFILE=REFFILE
+	DBMS=XLSX
+	OUT=WORK.IMPORT;
+	GETNAMES=YES;
+RUN;
+
+PROC CONTENTS DATA=WORK.IMPORT; RUN;
+
+
+%web_open_table(WORK.IMPORT);
+/* Importazione del file Excel */
+FILENAME REFFILE '/home/u64348929/acquisti_150 (v1).xlsx';
+
+PROC IMPORT DATAFILE=REFFILE
+	DBMS=XLSX
+	OUT=WORK.IMPORT;
+	GETNAMES=YES;
+RUN;
+
+/* Calcolo della media degli importi per ogni canale */
+proc means data=WORK.IMPORT noprint;
+  class media;          /* nome della colonna canale */
+  var scontrino;        /* nome della colonna importo */
+  output out=media_means mean=media_scontrino;
+run;
+
+/* Visualizzazione del risultato */
+proc print data=media_means;
+run;
+/* Calcola la frequenza degli acquisti per canale */
+proc freq data=WORK.IMPORT noprint;
+  tables media / out=freq_out;
+run;
+
+/* Calcola la spesa media per canale */
+proc means data=WORK.IMPORT noprint;
+  class media;
+  var scontrino;
+  output out=mean_out mean=media_scontrino;
+run;
+
+/* Unione delle frequenze con la spesa media */
+data joined_data;
+  merge freq_out(rename=(count=Frequency) keep=media count)
+        mean_out(keep=media media_scontrino);
+  by media;
+run;
+
+/* Grafico scatter con frequenza (asse x) e spesa media (asse y) */
+proc sgplot data=joined_data;
+  scatter x=Frequency y=media_scontrino / markerattrs=(symbol=circlefilled) datalabel=media;
+  xaxis label="Frequenza di acquisto";
+  yaxis label="Spesa media";
+run;
+proc univariate data=WORK.IMPORT;
+  var scontrino;
+  output out=quartili pctlpts=25 50 75 pctlpre=Q;
+run;
+
+/* Creazione della variabile IQR */
+data quartili_con_IQR;
+  set quartili;
+  IQR = Q75 - Q25;
+run;
+
+/* Stampa risultati */
+proc print data=quartili_con_IQR;
+run;
+/* Importazione del file Excel */
+FILENAME REFFILE '/home/u64348929/acquisti_150 (v1).xlsx';
+
+PROC IMPORT DATAFILE=REFFILE
+	DBMS=XLSX
+	OUT=WORK.IMPORT;
+	GETNAMES=YES;
+RUN;
+data scontrini_filtrati;
+  set WORK.IMPORT;
+  if 0 <= scontrino <= 47.25;
+run;
+
+/* Calcolo del terzo quartile */
+proc univariate data=WORK.IMPORT noprint;
+  var scontrino;
+  output out=quartili pctlpts=75 pctlpre=Q;
+run;
+
+/* Estrazione e ordinamento osservazioni */
+proc sql;
+  create table ultimo_quartile_alto as
+  select *
+  from WORK.IMPORT, quartili
+  where scontrino >= Q75 and scontrino > 93
+  order by scontrino asc;
+quit;
+
+/* Visualizza il risultato */
+proc print data=ultimo_quartile_alto;
+run;
+
+
